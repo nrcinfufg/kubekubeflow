@@ -1,0 +1,31 @@
+#cloud-config
+apt:
+  sources:
+    kubernetes.list:
+      source: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+      keyid: 4BD6EC30
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gpg
+  - kubelet
+  - kubeadm
+  - kubectl
+  - containerd
+
+runcmd:
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - apt-get update
+  - apt-get install -y containerd
+  - mkdir -p /etc/containerd
+  - containerd config default | tee /etc/containerd/config.toml
+  - systemctl restart containerd
+  - systemctl enable containerd
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo "net.ipv4.ip_forward = 1" | tee -a /etc/sysctl.conf
+  - sysctl -p
+  - echo "Kubernetes worker setup complete"
+  - echo "Use the kubeadm join command provided by the master to join the cluster"
