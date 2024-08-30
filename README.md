@@ -1,121 +1,47 @@
-## Índice
+** Cluster Kubernetes / Flannel / Ceph / Kubeflow / ... **
 
-1. Instalação do Kubeberenet
-2. configuração dos Nós Master
-3. Configuracação dos Nós de Trabalho
+Projeto: Cluster Kubernetes RTX 4090
 
-## Kubebernet
+Objetivo: Desenvolver um cluster Kubernetes robusto e escalável para atender às necessidades de treinamento de Inteligência Artificial (IA) e execução de containers, fornecendo tanto recursos dedicados para professores quanto ambientes controlados para alunos.
 
-Instalação do Kubernetes v1.30 no Ubuntu 22.04 Server
+** Problema **
 
-Este guia fornece instruções detalhadas sobre como instalar o Kubernetes v1.30 em um servidor Ubuntu 22.04.
+Com o aumento da demanda por recursos de computação de alta performance, especialmente em áreas de IA e aprendizado de máquina, é necessário criar uma infraestrutura que permita tanto o uso intensivo de GPUs quanto a gestão eficiente de recursos compartilhados em um ambiente educacional.
 
-**OBS:** O Kubelet não suporta o swap ativo, desative-o antes de continuar:
+** Requisitos: **
 
-    sudo swapoff -a
-    sudo sed -i '/ swap / s/^/#/' /etc/fstab
+    - Atender 40 máquinas equipadas com GPUs NVIDIA RTX 4090, exigindo uma infraestrutura capaz de gerenciar eficientemente o uso dessas GPUs.
+    - Os Professores que precisam de acesso dedicado aos recursos do cluster, podendo alocar uma ou todas as máquinas para seus experimentos e treinamentos de IA.
+    - Alunos que utilizarão containers com Jupyter Notebooks, necessitando de um ambiente isolado e seguro para execução de seus códigos sem impactar o desempenho global do cluster.
+    - Gerenciamento de armazenamento distribuído eficiente para suportar as cargas de trabalho de IA, garantindo que os dados sejam acessíveis e replicados com alta disponibilidade.
+    - Interfaces gráficas em cada máquina para permitir que os alunos acessem diretamente uma VM ao ligar o equipamento, facilitando o uso de recursos locais de cada máquina e não dar acesso direto aos recursos da máquina.
 
-**Passo 1: Atualizar o índice de pacotes e instalar pacotes necessários**
+** Solução **
 
-  Primeiro, atualize o índice de pacotes e instale os pacotes necessários para usar o repositório apt do Kubernetes:
+Para atender a esses requisitos, o projeto propõe a implementação de um cluster Kubernetes com as seguintes tecnologias e abordagens:
 
-    sudo apt-get update
-    sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+    CNI Flannel:
+        Configuração do Flannel como o plugin de rede CNI para garantir uma comunicação eficiente e simples entre os pods no cluster.
+        Escolha do Flannel por sua simplicidade e eficiência, adequada para o ambiente de alta performance com várias máquinas.
 
-**Passo 2: Baixar a chave pública de assinatura para os repositórios de pacotes do Kubernetes**
+    Ceph para Gerenciamento de Armazenamento:
+        Implementação do Ceph como solução de armazenamento distribuído, utilizando o operador Rook para facilitar a integração com o Kubernetes.
+        Ceph permitirá a criação de volumes persistentes que são acessíveis por múltiplos pods, garantindo alta disponibilidade e resiliência dos dados.
 
-  Baixe a chave pública de assinatura para os repositórios de pacotes do Kubernetes. A mesma chave de assinatura é usada para todos os repositórios, então você pode ignorar a versão na URL. Note que em lançamentos anteriores ao Debian 12 e Ubuntu 22.04, o diretório /etc/apt/keyrings não existe por padrão, e deve ser criado antes do comando curl.
+    Rancher para Gerenciamento do Cluster:
+        Instalação do Rancher para facilitar o gerenciamento do cluster Kubernetes, proporcionando uma interface gráfica intuitiva para administração e configuração do ambiente.
+        O Rancher permitirá o gerenciamento centralizado de todos os recursos do cluster, simplificando tarefas como o deploy de aplicações e monitoramento.
 
-    sudo mkdir -p -m 755 /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    Kubeflow para Treinamento de IA e Gestão de Workflows:
+        Implementação do Kubeflow para gerenciar o ciclo de vida dos treinamentos de IA, incluindo a enfileiração de tarefas e a execução de containers com Jupyter Notebook.
+        Professores poderão utilizar todo o poder computacional disponível para grandes treinamentos, enquanto os alunos terão acesso a ambientes isolados para experimentação e aprendizado.
 
-**Passo 3: Adicionar o repositório apt apropriado do Kubernetes**
+    VM com Interface Gráfica no host:
+        Configuração de uma VM com interface gráfica em cada uma das 40 máquinas, permitindo que os alunos acessem diretamente um ambiente gráfico ao iniciar a máquina.
+        Isso garante que os alunos não tenham acesso direto aos recursos das máquinas.
 
-  Adicione o repositório apt apropriado do Kubernetes. Por favor, note que este repositório tem pacotes apenas para o Kubernetes 1.30. Para outras versões menores do Kubernetes, você precisa mudar a versão menor do Kubernetes na URL para corresponder à sua versão menor desejada (você também deve verificar se está lendo a documentação para a versão do Kubernetes que você planeja instalar).
+Conclusão
 
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+Este projeto visa criar uma infraestrutura de computação altamente flexível, escalável e eficiente para suportar tanto o ensino quanto a pesquisa em ambientes educacionais que demandam alto poder computacional. Com o uso combinado de Kubernetes, Ceph, Rancher, e Kubeflow, o cluster será capaz de atender às necessidades diversas de professores e alunos, otimizando o uso de recursos e garantindo um ambiente de aprendizado e pesquisa de ponta.
 
-**Passo 4: Atualizar o índice de pacotes apt, instalar kubelet, kubeadm e kubectl, e fixar suas versões**
-
-  Atualize o índice de pacotes apt, instale o kubelet, kubeadm e kubectl, e fixe suas versões para evitar atualizações inesperadas:
-
-    sudo apt-get update
-    sudo apt-get install -y kubelet kubeadm kubectl
-    sudo apt-mark hold kubelet kubeadm kubectl
-
-**Passo 5: Instalar e Configurar Containerd**
-
-  Instalar o Containerd
-
-    sudo apt-get install -y containerd
-
-  Configurar o Containerd
-
-    sudo mkdir -p /etc/containerd
-    sudo containerd config default | sudo tee /etc/containerd/config.toml
-    sudo systemctl restart containerd
-    sudo systemctl enable containerd
-
-**Passo 6: Configurar o Kernel**
-
-  Habilita o módulo br_netfilter
-
-    sudo modprobe br_netfilter
-
-  Aplica configurações sysctl necessárias:
-
-    sudo bash -c 'cat <<EOF >/etc/sysctl.d/k8s.conf
-    net.bridge.bridge-nf-call-iptables = 1
-    net.bridge.bridge-nf-call-ip6tables = 1
-    net.ipv4.ip_forward = 1
-    EOF'
-    sudo sysctl --system
-
-**Passo 7: Habilitar e Iniciar o Serviço Kubelet**
-
-    sudo systemctl enable --now kubelet
-
-**Configuração dos Nós Master**
-
-  **Primeiro Nó Master**
-  Inicializar o Cluster
-
-    sudo kubeadm init --control-plane-endpoint "10.0.0.100:6443" --upload-certs --pod-network-cidr=10.0.0.0/16
-
-  Configurar Kubectl
-
-    mkdir -p $HOME/.kube
-    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-    sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-  Instalar a Rede de Pod (Calico)
-
-    kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
-
-  Obter o Comando Kubeadm Join para Nós Master
-
-    kubeadm token create --print-join-command --certificate-key $(kubeadm init phase upload-certs --upload-certs)
-
-  **Segundo nó master**
-  Adicionar o Segundo Nó Master
-
-  No segundo nó master, execute o comando kubeadm join obtido no passo anterior:
-
-    Exemplo: sudo kubeadm join 10.0.0.100:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash> --control-plane --certificate-key <certificate-key>
-
-  **Configuração dos Nós de Trabalho**
-  Obter o Comando Kubeadm Join do Primeiro Nó Master
-
-  No primeiro nó master, obtenha o comando kubeadm join:
-
-    kubeadm token create --print-join-command
-
-  Nos nós de trabalho, execute o comando kubeadm join obtido no passo anterior:
-
-    Exemplo: sudo kubeadm join 10.0.0.100:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash>
-
-  Verificar o Status do Kubelet
-
-  Após inicializar o cluster ou unir o nó ao cluster, verifique o status do kubelet:
-
-    sudo systemctl status kubelet
+Este é apenas um prelúdio para o cluster das DGX ...
