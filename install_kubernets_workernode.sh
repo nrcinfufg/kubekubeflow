@@ -1,23 +1,34 @@
 #!/bin/bash
 
-# Atualizar pacotes e instalar dependências
-sudo apt-get update && sudo apt-get install -y apt-transport-https curl
-
-# Adicionar chave GPG do repositório do Kubernetes
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-
-# Adicionar repositório do Kubernetes
-cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-deb https://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-# Atualizar lista de pacotes e instalar Kubernetes
-sudo apt-get update
-sudo apt-get install -y kubelet kubeadm
-
-# Desativar swap (necessário para Kubernetes)
 sudo swapoff -a
-sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+sudo sed -i '/ swap / s/^/#/' /etc/fstab
 
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
 
-echo "Para adicionar o Worker Node ao cluster Kubernetes execute a linha de configuração forneceida pelo Master Node!"
+sudo mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+
+sudo apt-get install -y containerd
+
+sudo mkdir -p /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl enable containerd
+
+sudo modprobe br_netfilter
+
+sudo bash -c 'cat <<EOF >/etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+EOF'
+sudo sysctl --system
+
+sudo systemctl enable --now kubelet
