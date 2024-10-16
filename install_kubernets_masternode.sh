@@ -29,12 +29,13 @@ net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward = 1
 EOF'
+
 sudo sysctl --system
 
 sudo systemctl enable --now kubelet
 
 # Inicializar o master node (modifique o CIDR conforme sua rede)
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+sudo kubeadm init --control-plane-endpoint "10.0.0.100:6443" --upload-certs --pod-network-cidr=10.0.0.0/16
 
 # Configurar o kubectl para o usuário atual
 mkdir -p $HOME/.kube

@@ -32,6 +32,10 @@ sudo rm -rf /var/lib/containerd
 
 # Reiniciar o serviço containerd
 echo "Reiniciando o serviço containerd..."
-sudo systemctl restart containerd
+sudo systemctl stop containerd
+
+sudo apt-get purge -y containerd
+
+sudo apt-get autoremove -y
 
 echo "Remoção completa do Kubernetes finalizada!"
